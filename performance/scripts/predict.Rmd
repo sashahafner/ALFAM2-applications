@@ -1,0 +1,96 @@
+---
+title: 'Model call record'
+output: pdf_document
+author: Sasha D. Hafner
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+# Prep
+
+
+```{r}
+library(lineprof)
+```
+
+```{r}
+source('load_ALFAM2.R')
+```
+
+```{r}
+dat0 <- data.frame(ctime = 48, TAN.app = 100, air.temp = 10, wind.2m = 5, man.dm = 5)
+alfam2(dat0, add.pars = c(soil.clay.f0 = 0.1), app.name = "TAN.app", time.name = "ctime", warn = TRUE)
+
+
+preds <- alfam2(d2, app.name = 'tan.app', time.name = 'cta', time.incorp = 'time.incorp', group = 'pmid', warn = TRUE, prep = TRUE)
+names(preds)
+preds <- alfam2(d2, app.name = 'tan.app', time.name = 'ct', time.incorp = 'time.incorp', group = 'pmid', warn = TRUE, prep = TRUE)
+preds <- alfam2(d2, app.name = 'tan.app', time.name = 'ct', time.incorp = 'time.incorp', group = 'pmid', warn = TRUE, prep = TRUE)
+system.time(
+  preds <- alfam2(d2, app.name = 'tan.app', time.name = 'ct', time.incorp = 'time.incorp', group = 'pmid', warn = TRUE, prep = TRUE)
+)
+
+traceback()
+head(preds)
+```
+
+
+```{r}
+dat1 <- data.frame(ctime = 72, TAN.app = 50, man.dm = 8, 
+                   air.temp = 20, wind.2m = 3, 
+                   app.mthd.bc = TRUE)
+dat1
+```
+
+```{r}
+pred1 <- alfam2(dat1, app.name = 'TAN.app', time.name = 'ctime')
+```
+
+
+
+Calculates emission
+
+Run model 
+
+With set 2 parameters
+
+```{r}
+preds <- ALFAM2mod(d2, app.name = 'tan.app', time.name = 'ct', time.incorp = 'time.incorp', group = 'pmid', warn = TRUE, prep = TRUE)
+head(dat)
+```
+
+
+```{r}
+dim(d2)
+length(unique(d2$pmid))
+
+system.time(
+  preds <- ALFAM2mod(d2, app.name = 'tan.app', time.name = 'ct', time.incorp = 'time.incorp', group = 'pmid', warn = TRUE, prep = TRUE)
+)
+
+p <- lineprof(preds <- ALFAM2mod(d2, app.name = 'tan.app', time.name = 'ct', time.incorp = 'time.incorp', group = 'pmid', warn = TRUE, prep = TRUE))
+
+shine(p)
+
+```
+
+```{r}
+system.time(split(d2, d2$pmid))
+system.time(base::split(d2, d2$pmid))
+system.time(
+            {
+            d2l <- list()
+            d2$pmid <- factor(d2$pmid)
+            for (i in unique(d2$pmid)) {
+              d2l[[i]] <- d2[d2$pmid == i, ]
+            }
+            }
+)
+```
+
+```{r}
+m <- as.matrix(d2)
+system.time(ml <- split(m, m[, 'pmid']))
+ml[[1]]
+```
+
+
