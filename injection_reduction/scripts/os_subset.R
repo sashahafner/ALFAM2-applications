@@ -30,13 +30,45 @@ psubw[, os.rr := 100 * (bsth - os) / bsth]
 fwrite(psub, '../output/ALFAM2_plot_th_os_exper_subset.csv')
 fwrite(psubw, '../output/ALFAM2_plot_th_os_exper_subset_wide.csv')
 
-# Simple plot
+# Scatter plot
 ggplot(psubw, aes(bsth, os, colour = inst)) +
   geom_point() +
-  geom_abline(intercept = 0, slope = 1)
-ggsave('../plots/os_th.png')
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = 'Slæbeslange', y = 'Åben rende nedfældning', colour = '') +
+  theme_bw() +
+  theme(legend.position = 'none') 
+ggsave('../plots/os_th.png', height = 3, width = 3)
 
 # Reduction plot
 ggplot(psubw, aes(bsth, os.rr, colour = inst)) +
   geom_point() 
 ggsave('../plots/os_reducation.png')
+
+# Repeat for closed slot
+# Find those experiments with both th and os
+dexper <- esumm[grepl('bsth.*cs|cs.*bsth', app.mthds), ]
+exper.sel <- dexper[, uexper]
+
+# Subset to those experiments and only those application methods
+psub <- pdat[uexper %in% exper.sel & app.mthd %in% c('bsth', 'cs')]
+psumm <- table(psub[, c('uexper', 'app.mthd')])
+psumm
+
+# Reshape (use data.table operation instead if more variables are needed).
+psubw <- dcast(psub, institute + inst + exper + uexper ~ app.mthd, value.var = 'e.rel.final', fun.aggregate = mean)
+psubw[, cs.rr := 100 * (bsth - cs) / bsth]
+
+# Export
+fwrite(psub, '../output/ALFAM2_plot_th_cs_exper_subset.csv')
+fwrite(psubw, '../output/ALFAM2_plot_th_cs_exper_subset_wide.csv')
+
+# Scatter plot
+ggplot(psubw, aes(bsth, cs, colour = inst)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1) +
+  labs(x = 'Slæbeslange', y = 'Lukket rende nedfældning', colour = '') +
+  theme_bw() +
+  theme(legend.position = 'none') 
+ggsave('../plots/cs_th.png', height = 3, width = 3)
+
+
