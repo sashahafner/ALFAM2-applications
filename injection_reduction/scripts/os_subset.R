@@ -34,10 +34,13 @@ fwrite(psubw, '../output/ALFAM2_plot_th_os_exper_subset_wide.csv')
 ggplot(psubw, aes(bsth, os, colour = inst)) +
   geom_point() +
   geom_abline(intercept = 0, slope = 1) +
-  labs(x = 'Slæbeslange', y = 'Åben rende nedfældning', colour = '') +
   theme_bw() +
-  theme(legend.position = 'none') 
-ggsave('../plots/os_th.png', height = 3, width = 3)
+  scale_color_brewer(palette = 'Paired') + 
+  theme(legend.position = 'none')  + 
+  xlab('Slæbeslange (frak. af TAN)') + 
+  ylab('Åben rende ned. (frak. af TAN)') + 
+  xlim(0, 1.3) + ylim(0, 1.3)
+ggsave('../plots/os_th.png', height = 2.5, width = 2.5)
 
 # Reduction plot
 ggplot(psubw, aes(bsth, os.rr, colour = inst)) +
@@ -66,9 +69,12 @@ fwrite(psubw, '../output/ALFAM2_plot_th_cs_exper_subset_wide.csv')
 ggplot(psubw, aes(bsth, cs, colour = inst)) +
   geom_point() +
   geom_abline(intercept = 0, slope = 1) +
-  labs(x = 'Slæbeslange', y = 'Lukket rende nedfældning', colour = '') +
   theme_bw() +
-  theme(legend.position = 'none') 
-ggsave('../plots/cs_th.png', height = 3, width = 3)
+  scale_color_brewer(palette = 'Paired') + 
+  theme(legend.position = 'none')  + 
+  xlab('Slæbeslange (frak. af TAN)') + 
+  ylab('Lukket rende ned. (frak. af TAN)') + 
+  xlim(0, 1.3) + ylim(0, 1.3)
+ggsave('../plots/cs_th.png', height = 2.5, width = 2.5)
 
 
