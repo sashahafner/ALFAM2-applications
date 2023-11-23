@@ -33,7 +33,7 @@ fwrite(psubw, '../output/ALFAM2_plot_th_os_exper_subset_wide.csv')
 # Scatter plot
 ggplot(psubw, aes(bsth, os, colour = inst)) +
   geom_point() +
-  geom_abline(intercept = 0, slope = 1) +
+  geom_abline(intercept = 0, slope = 1, linetype = 'dashed') +
   theme_bw() +
   scale_color_brewer(palette = 'Paired') + 
   theme(legend.position = 'none')  + 
@@ -68,7 +68,7 @@ fwrite(psubw, '../output/ALFAM2_plot_th_cs_exper_subset_wide.csv')
 # Scatter plot
 ggplot(psubw, aes(bsth, cs, colour = inst)) +
   geom_point() +
-  geom_abline(intercept = 0, slope = 1) +
+  geom_abline(intercept = 0, slope = 1, linetype = 'dashed') +
   theme_bw() +
   scale_color_brewer(palette = 'Paired') + 
   theme(legend.position = 'none')  + 
