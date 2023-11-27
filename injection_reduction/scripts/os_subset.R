@@ -39,6 +39,7 @@ ggplot(psubw, aes(bsth, os, colour = inst)) +
   theme(legend.position = 'none')  + 
   xlab('Slæbeslange (frak. af TAN)') + 
   ylab('Åben rende ned. (frak. af TAN)') + 
+  theme(legend.position = 'none') +
   xlim(0, 1.3) + ylim(0, 1.3)
 ggsave('../plots/os_th.png', height = 2.5, width = 2.5)
 
