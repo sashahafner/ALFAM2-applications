@@ -6,7 +6,7 @@ urlcolor: blue
 ---
 
 # Overview
-This document for Arman Favrot presents a repeat of the evaluation of the ALFAM2 model with parameter set 1 originally presented in the 2019 paper introducing the model.
+This document for Armand Favrot presents a repeat of the evaluation of the ALFAM2 model with parameter set 1 originally presented in the 2019 paper introducing the model.
 
 # Packages and functions
 
