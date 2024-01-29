@@ -47,6 +47,8 @@ Load interval-level data.
 Note this is version 1.0 of ALFAM2 "database".
 See <https://github.com/sashahafner/ALFAM2-data/tree/cfa0055e44907578bf40e0eac389e020f93dd6b1/data%20-%20ALFAM2%20output> for this version.
 Unfortunately I was just getting started with GitHub releases around this time in 2018, so there is no releaase for this version.
+Since then the situation has improved.
+Now you can always find the database version in `data-output/...` ([here](https://github.com/sashahafner/ALFAM2-data/tree/master/data-output/03)), and new versions get releases ([here](https://github.com/sashahafner/ALFAM2-data/releases)).
 
 ```{r}
 idat <- fread('../data/ALFAM2_interval.csv')
@@ -82,6 +84,9 @@ dfsumm(idat[datasub == 'cal',.(pmid, app.mthd, app.rate, man.dm, man.source, air
 ```
 
 Fill in missing wind speed, air temperature, rainfall values.
+This is a thorny problem. 
+Dropping values means leaving out emission intervals.
+Here they are set to the average by plot, or, for rain, zero.
 
 ```{r}
 idat[, wind.2m.ave := mean(wind.2m, na.omit = TRUE), by = pmid]
@@ -118,6 +123,7 @@ pars
 
 Generate predictions.
 Note `group` argument allows application to multiple plots.
+See the vignette for more details.
 So you can apply the function to any number of plots/locations with a single call.
 And in this version of the package `prep.dum = TRUE` by default (new argument name too).
 
