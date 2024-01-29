@@ -1,7 +1,7 @@
 ---
 title: 'Repeat evaluation of ALFAM2 parameter set 1'
 author: 'Sasha D. Hafner'
-date: '28 January 2024'
+date: '29 January 2024'
 urlcolor: blue
 ---
 
@@ -174,8 +174,3 @@ summ2 <- idat.final[, .(n = length(e.cum),
                         ), by = datasub]
 summ2
 ```
-
-summ
-
-
-
