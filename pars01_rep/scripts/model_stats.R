@@ -1,4 +1,5 @@
 # Functions for model fit
+
 # m = observed value, p = predicted value from model
 
 me <- function(m, p) {
