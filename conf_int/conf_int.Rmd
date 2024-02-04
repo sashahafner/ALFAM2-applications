@@ -15,6 +15,7 @@ Use line below to remove existing version and install latest dev version.
 
 ```{r}
 #remove.packages('ALFAM2') ; devtools::install_github('sashahafner/ALFAM2', ref = 'dev')
+#detach('package:ALFAM2')
 ```
 
 ```{r}
@@ -64,11 +65,15 @@ lines(er.lwr ~ ctime, data = predci, type = 'l', col = 'blue')
 lines(er.upr ~ ctime, data = predci, type = 'l', col = 'red')
 ```
 
-This 90% CI is quite wide, it is seems a bit strange that the prediction with default parmeters is close to the upper limit at the start.
+This 90% CI is quite wide, it is seems a bit strange that the prediction with default parmeters is close to the upper limit, especially at the start.
 But these are draft parameter values, so this second issue may not be present in the final values.
 The CIs will likely remain wide.
+Anyway, the focus of this demo is function behavior and not the values of the CI per se.
 
-We can add any output variables for CI calculation, but `quantile` is applied by variable, so the limits may not associate between variables.
+We can add any output variables for CI calculation, but `quantile` is applied by variable, so the limits returned from different variables will be from different parameter sets and so should be considered separately.
+(This is a concept that clearly needs some more development.
+At the moment I cannot think of how users might even use values for different variables and whether this issue is a problem.
+But it should not be too difficult to get the function to return values from the same sets instead.)
 Use the `var.ci` argument for this.
 Here we request 3 variables.
 
