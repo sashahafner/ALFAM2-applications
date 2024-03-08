@@ -1,0 +1,226 @@
+---
+title: "ALFAM2 confidence interval calculations"
+author: "Sasha D. Hafner"
+date: "`r Sys.Date()`"
+---
+
+# Overview
+In January/February 2024 I added some code for calculating confidence intervals to `alfam2()`, given multiple parameter sets that themselves represent the distribution of possible parameter values.
+This document demonstrates the implementation.
+
+# ALFAM2 package
+
+This is from the dev branch.
+Use line below to remove existing version and install latest dev version.
+
+```{r}
+#remove.packages('ALFAM2') ; devtools::install_github('sashahafner/ALFAM2', ref = 'dev')
+#detach('package:ALFAM2')
+```
+
+```{r}
+library(ALFAM2)
+packageVersion('ALFAM2')
+```
+
+I am using v3.70 here.
+
+# Example 1 with dynamics
+
+```{r}
+dat <- data.frame(ctime = 0:84*2, TAN.app = 100, man.dm = 8, 
+                  air.temp = 7 + 7*sin(0:84*2 * 2*pi/24) + rnorm(85, 0, 2), 
+                  wind = 10^(0.5 + 0.4*sin(0:84*2 * 2*pi/24) + 
+                             rnorm(85, 0, 0.12)), 
+                  app.mthd = "bc")
+```
+
+```{r}
+plot(air.temp ~ ctime, data = dat, type = 'o', col = 'gray45')
+plot(wind ~ ctime, data = dat, type = 'o', col = 'blue')
+```
+
+Normal call without confidence intervals (CI).
+
+```{r}
+pred1 <- alfam2(dat, app.name = 'TAN.app', time.name = 'ctime', warn = FALSE)
+head(pred1)
+```
+
+Add CI.
+They are given in the output with `.lwr` and `.upr` suffixes.
+
+```{r}
+predci <- alfam2(dat, pars = alfam2pars03_alpha, app.name = 'TAN.app', 
+                time.name = 'ctime', warn = FALSE, conf.int = 0.90, 
+                pars.ci = alfam2pars03var_alpha)
+head(predci)
+```
+
+By default CI are only returned for variable `er` = relative cumulative emission.
+
+```{r}
+plot(er ~ ctime, data = predci, type = 'l', ylim = c(0, max(predci$er.upr)))
+lines(er.lwr ~ ctime, data = predci, type = 'l', col = 'blue')
+lines(er.upr ~ ctime, data = predci, type = 'l', col = 'red')
+```
+
+This 90% CI is quite wide, it is seems a bit strange that the prediction with default parmeters is close to the upper limit, especially at the start.
+But these are draft parameter values, so this second issue may not be present in the final values.
+The CIs will likely remain wide.
+Anyway, the focus of this demo is function behavior and not the values of the CI per se.
+
+We can add any output variables for CI calculation, but `quantile` is applied by variable, so the limits returned from different variables will be from different parameter sets and so should be considered separately.
+(This is a concept that clearly needs some more development.
+At the moment I cannot think of how users might even use values for different variables and whether this issue is a problem.
+But it should not be too difficult to get the function to return values from the same sets instead.)
+Use the `var.ci` argument for this.
+Here we request 3 variables.
+
+```{r}
+predci <- alfam2(dat, pars = alfam2pars03_alpha, app.name = 'TAN.app', 
+                time.name = 'ctime', warn = FALSE, conf.int = 0.90, 
+                pars.ci = alfam2pars03var_alpha, var.ci = c('er', 'j', 'r1'))
+head(predci)
+```
+
+Note that times with any `NaN` etc. in one of `var.ci` columns will be dropped before applying the `quantile()` function.
+So here all `lwr` and `upr` limits are `NA` for time = 0 h.
+
+```{r}
+plot(er ~ ctime, data = predci, type = 'l', ylim = c(0, max(na.omit(predci$er.upr))))
+lines(er.lwr ~ ctime, data = predci, type = 'l', col = 'blue')
+lines(er.upr ~ ctime, data = predci, type = 'l', col = 'red')
+```
+
+```{r}
+plot(j ~ ctime, data = predci, type = 's', ylim = c(0, max(na.omit(predci$j.upr))))
+lines(j.lwr ~ ctime, data = predci, type = 's', col = 'blue')
+lines(j.upr ~ ctime, data = predci, type = 's', col = 'red')
+```
+
+# Example 2 application to multiple groups
+
+Here is a test where each group has a different incorporation time (based on one in vignette).
+
+```{r}
+datm <- data.frame(scenario = 1:6, ctime = 168, TAN.app = 50, 
+                   man.dm = 8, air.temp = 20, wind.2m = 4, 
+                   app.mthd = 'bc',
+                   incorp = 'deep', 
+                   t.incorp = c(0.1, 1, 6, 24, 168, NA))
+```
+
+
+```{r}
+predci <- alfam2(datm, pars = alfam2pars03_alpha, app.name = 'TAN.app', 
+                time.name = 'ctime', time.incorp = 't.incorp', group = 'scenario',
+                conf.int = 0.90, 
+                pars.ci = alfam2pars03var_alpha, var.ci = c('er'))
+predci
+```
+
+Plot emission versus time of incorporation.
+
+```{r}
+plot(datm$t.incorp, predci$er, type = 'o', ylim = c(0, max(predci$er.upr)))
+lines(datm$t.incorp, predci$er.lwr, type = 'o', col = 'blue')
+lines(datm$t.incorp, predci$er.upr, type = 'o', col = 'red')
+```
+
+Notice how the CI is larger for rapid incorporation, because of uncertainty in incorporation parameters that has a smaller effect when incorporation is done later.
+
+By default the model is run with all the different parameter sets provided in `pars.ci`, which is 100 in this draft object.
+
+```{r}
+dim(alfam2pars03var_alpha)
+```
+
+For speed some users might want to sometimes reduce that.
+
+```{r}
+predci <- alfam2(datm, pars = alfam2pars03_alpha, app.name = 'TAN.app', 
+                time.name = 'ctime', time.incorp = 't.incorp', group = 'scenario',
+                conf.int = 0.90, pars.ci = alfam2pars03var_alpha,
+                n.ci = 10)
+predci
+```
+
+# Example 3 on getting all predictions
+When `conf.int=` some number it is used in the `quantile` function.
+To get all results, use `conf.int = 'all'`.
+This could be useful to combine uncertainty in parameter values with uncertainty in inputs.
+Of course then the CIs would have to be constructed outside the `alfam2` function, but it cannot do everything, so I think this is OK.
+
+```{r}
+datvar <- data.frame(ctime = 168, TAN.app = 50, man.dm = rnorm(7, mean = 8, sd = 1), 
+                     air.temp = 20, wind.2m = 3)
+```
+
+Here is what we get with numeric `conf.int`.
+
+```{r}
+predci <- alfam2(datvar, pars = alfam2pars03_alpha, app.name = 'TAN.app', 
+                time.name = 'ctime', group = 'man.dm',
+                conf.int = 0.90, pars.ci = alfam2pars03var_alpha)
+predci
+```
+
+Not so useful.
+
+The alternative:
+
+
+```{r}
+predci <- alfam2(datvar, pars = alfam2pars03_alpha, app.name = 'TAN.app', 
+                time.name = 'ctime', group = 'man.dm',
+                conf.int = 'all', pars.ci = alfam2pars03var_alpha, n.ci = 3)
+predci
+```
+
+21 rows here, deliberately small so we can look at the results.
+
+More plausible usage would have at least 100 of each I suppose, for 10000 rows in the output.
+
+```{r}
+datvar <- data.frame(ctime = 168, TAN.app = 50, man.dm = rnorm(100, mean = 8, sd = 1), 
+                     air.temp = 20, wind.2m = 3)
+```
+
+```{r}
+predci <- alfam2(datvar, pars = alfam2pars03_alpha, app.name = 'TAN.app', 
+                time.name = 'ctime', group = 'man.dm',
+                conf.int = 'all', pars.ci = alfam2pars03var_alpha, n.ci = 100)
+head(predci)
+```
+
+And then, externally, for a 95% confidence interval that includes uncertainty in both inputs (only DM here) and parameters, we can use `quatile()`:
+
+```{r}
+quantile(predci$er, c(0.05, 0.95))
+```
+
+# Error messages
+
+The calls below demonstrate some errors.
+
+```{r,error=TRUE}
+predci <- alfam2(datvar, pars = alfam2pars03_alpha, app.name = 'TAN.app', 
+                time.name = 'ctime', group = 'man.dm',
+                conf.int = 'all', n.ci = 100)
+```
+
+```{r,error=TRUE}
+predci <- alfam2(datvar, pars = alfam2pars03_alpha, app.name = 'TAN.app', 
+                time.name = 'ctime', group = 'man.dm',
+                conf.int = 'all', pars.ci = alfam2pars03var_alpha, n.ci = 1000)
+```
+
+```{r,error=TRUE}
+predci <- alfam2(datvar, pars = alfam2pars03_alpha, app.name = 'TAN.app', 
+                time.name = 'ctime', group = 'man.dm',
+                conf.int = 'all', pars.ci = alfam2pars03var_alpha, n.ci = 10, 
+                var.ci = 'blahblah')
+```
+
+
