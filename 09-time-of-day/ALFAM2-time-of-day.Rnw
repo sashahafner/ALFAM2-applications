@@ -1,0 +1,63 @@
+
+\documentclass{article}
+
+%%\usepackage[version=3]{mhchem} %chemical formulas
+\usepackage[colorlinks = true, urlcolor = blue]{hyperref} % Must be loaded as the last package
+
+<<include=FALSE, cache=FALSE>>=
+library(knitr)
+opts_chunk$set(cache = FALSE, tidy = FALSE, fig.align = "center")
+library(ALFAM2)
+options(width=65)
+@
+
+\title{ALFAM2 model time of day effects}
+\author{Sasha D. Hafner (\texttt{sasha.hafner@bce.au.dk})}
+
+\begin{document}
+
+\maketitle
+
+\section{Overview}
+The intent of this demo is see an example of time-of-day effects in the ALFAM2 model.
+
+\section{Input data}
+
+Generate input data either starting at peak air temperature and wind speed (\texttt{dat1}) or at minimum values (\texttt{dat2}).
+Omit other predictor variables (so use default values).
+
+<<>>=
+dat1 <- data.frame(ctime = 0:168, TAN.app = 100, man.dm = 8, 
+                   air.temp = 7 + 7*sin(c(0:168 + 6) * 2*pi/24), 
+                   wind.2m = 10 + 4*sin(c(0:168 + 6) * 2*pi/24)) 
+
+dat2 <- data.frame(ctime = 0:168, TAN.app = 100, man.dm = 8, 
+                   air.temp = 7 + 7*sin(c(0:168 + 6 + 12) * 2*pi/24), 
+                   wind.2m = 10 + 4*sin(c(0:168 + 6 + 12) * 2*pi/24)) 
+
+plot(air.temp ~ ctime, data = dat1, type = 'o', col = 'blue')
+lines(air.temp ~ ctime, data = dat2, type = 'o', col = 'red')
+
+plot(wind.2m ~ ctime, data = dat1, type = 'o', col = 'blue')
+lines(wind.2m ~ ctime, data = dat2, type = 'o', col = 'red')
+@
+
+\section{Model predictions}
+
+Use draft parameter set 3.
+
+<<>>=
+pred1 <- alfam2(dat1, pars = ALFAM2::alfam2pars03_alpha, app.name = 'TAN.app', 
+                time.name = 'ctime')
+pred2 <- alfam2(dat2, pars = ALFAM2::alfam2pars03_alpha, app.name = 'TAN.app', 
+                time.name = 'ctime')
+@
+
+<<>>=
+plot(e ~ ctime, data = pred1, type = 'l', xlab = 'Time (h)', 
+     ylab = 'Cumulative emission (kg/ha)', col = 'blue')
+lines(e ~ ctime, data = pred2, type = 'l', col = 'red')
+@
+
+\end{document}
+
