@@ -1,0 +1,72 @@
+---
+title: 'Empirical models for assessing predictor variables'
+output: pdf_document
+author: Sasha D. Hafner
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+```{r}
+library(data.table)
+library(lme4)
+```
+
+
+```{r}
+pdat <- fread('../ALFAM2-data/data/ALFAM2_plot.csv')
+```
+
+Subset
+
+```{r}
+s1 <- pdat[meas.tech2 == 'micro met' & man.source %in% c('cat', 'pig'), ]
+```
+
+Models
+
+```{r}
+m1 <- lmer(log10(e.rel.final) ~ (man.dm + man.ph + man.source + 
+                                 air.temp.24 + wind.24 + app.rate) * 
+                                app.method + (1 | inst), 
+           data = s1)
+
+summary(m1)
+```
+
+```{r}
+m2 <- lmer(log10(e.rel.final) ~ (man.dm + man.ph + man.tan + man.source + 
+                                 air.temp.24 + wind.24 + app.rate) * 
+                                app.method + (1 | inst), 
+           data = s1)
+
+summary(m2)
+```
+
+```{r}
+anova(m1, m2, test = 'Chisq')
+```
+
+With crops.
+
+```{r}
+s1[is.na(crop.z), crop.z := 0]
+s1[crop == 'bare soil', crop := 'none']
+s1[, crop := relevel(factor(crop), ref = 'none')]
+m3 <- lmer(log10(e.rel.final) ~ (man.dm + man.ph + man.tan + man.source + 
+                                 air.temp.24 + wind.24 + app.rate + crop + crop.z) * 
+                                app.method + (1 | inst), 
+           data = s1)
+
+summary(m3)
+```
+
+```{r}
+anova(m2, m3, test = 'Chisq')
+```
+
+
+
+
+
+
+
+
