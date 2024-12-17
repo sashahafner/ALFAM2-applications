@@ -1,0 +1,206 @@
+---
+title: 'ALFAM2 model fit with parameter set 3'
+output: pdf_document
+author: Sasha D. Hafner
+date: "`r format(Sys.time(), '%d %B, %Y %H:%M')`"
+---
+
+# 1. Summary
+Determination of ALFAM2 model performance using parameter set 3, for the 700+ plots used for parameter estimation.
+
+# 2. Setup
+
+Some functions.
+
+```{r}
+source('functions/interpm.R')
+source('functions/dfsumm.R')
+source('functions/model_stats.R')
+```
+
+Packages.
+
+```{r}
+library(data.table)
+library(ggplot2)
+```
+
+ALFAM2, check version.
+
+```{r}
+library(ALFAM2)
+packageVersion('ALFAM2')
+alfam2pars03
+```
+
+And it is good practice to check hash, in case someone (me) did a poor job with version numbers.
+
+```{r}
+devtools::package_info('ALFAM2')
+```
+
+# 3. Measurement data
+
+See `data-emission/data/data_version.txt` for version.
+This was copied directly from the 20204 paper (<https://github.com/aU-BCE-EE/hafner-2024-ALFAM2-dev>) so is already outdated.
+Change `rtag` in `data-emission/scripts/main.R` to select a different version.
+
+```{r}
+idat <- fread('data-emission/data/ALFAM2_interval.csv')
+pdat <- fread('data-emission/data/ALFAM2_plot.csv')
+```
+
+The `pmid` keys from the 2024 paper (<https://github.com/aU-BCE-EE/hafner-2024-ALFAM2-dev>).
+
+```{r}
+pmid1 <- fread('pmid/pmid_sub1.txt')[[1]]
+```
+
+Subset to subset 1 from 2024 paper.
+
+```{r}
+dim(pdat)
+pdat <- pdat[pmid %in% pmid1, ]
+dim(pdat)
+```
+
+Merge into idat
+
+```{r}
+dim(idat)
+idat1 <- merge(idat, pdat, by = c('pid', 'pmid'))
+dim(idat1)
+```
+
+New names.
+
+```{r}
+idat1[, wind.sqrt := sqrt(wind.2m)]
+idat1[, app.mthd := app.method]
+```
+
+Check for missing values.
+
+```{r}
+dfsumm(idat1[, .(app.mthd, man.dm, man.source, man.ph, tan.app)])
+dfsumm(idat1[, .(ct, cta, air.temp, wind.sqrt, rain.rate, rain.cum)])
+```
+
+Plenty, as in paper.
+
+Fill in missing pH with institute means from full database
+
+```{r}
+mnph <- pdat[, .(man.ph.mean = mean(na.omit(man.ph)), man.ph.n = sum(is.na(man.ph))), by = inst]
+mnph
+idat1 <- merge(idat1, mnph, by = 'inst')
+idat1[is.na(man.ph), man.ph.missing := TRUE]
+idat1[is.na(man.ph), man.ph := man.ph.mean]
+```
+
+Interpolate missing wind and air temperature values.
+Set missing rain to 0.
+Set `cta` to `ct` where missing.
+And drop obs with `cta < 0`.
+
+```{r}
+idat1[, `:=` (interp.wind = is.na(wind.2m), interp.air.temp = is.na(air.temp)), ]
+idat1 <- interpm(idat1, 'ct', c('wind.sqrt', 'air.temp'), by = 'pmid', rule = 2)
+
+idat1[is.na(rain.rate), rain.missing := TRUE]
+idat1[is.na(rain.rate), rain.rate := 0]
+idat1[is.na(rain.cum), rain.cum := 0]
+
+idat1[is.na(cta), cta := ct]
+
+idat1 <- idat1[cta > 0, ]
+```
+
+Check for other missing values.
+
+```{r}
+dfsumm(idat1[, .(app.mthd, man.dm, man.source, man.ph, tan.app)])
+dfsumm(idat1[, .(ct, cta, air.temp, wind.sqrt, rain.rate, rain.cum)])
+```
+
+Everything is OK now.
+
+# 4. ALFAM2 predictions
+
+```{r}
+args(alfam2)
+pred <- alfam2(idat1, pars = alfam2pars03, app.name = 'tan.app', time.name = 'cta',
+	       group = 'pmid', 
+	       time.incorp = 'time.incorp')
+```
+
+Combine with measurements.
+
+```{r}
+out <- merge(idat1, pred, by = c('pmid', 'cta'), suffixes = c('', '.pred'))
+```
+
+Error.
+
+* in cumulative emission, kg N / ha,
+* in relative emission, fraction of applied TAN,
+* and relative to measured cumulative emission, as a percentage
+
+```{r}
+out[, err.e.cum := e - e.cum]
+out[, err.er := e.rel - er]
+out[, err.rel := 100 * err.e.cum / e.cum]
+hist(out$err.e.cum)
+hist(out$err.er)
+```
+
+Get latest time.
+
+```{r}
+out[, cta.max := max(cta), by = .(pmid)]
+outfinal <- out[cta == cta.max, ]
+```
+
+Take a look.
+
+```{r}
+ggplot(out, aes(er, e.rel, colour = app.mthd)) + geom_point()
+ggplot(outfinal, aes(er, e.rel, colour = app.mthd)) + geom_point()
+```
+
+## Fit statistics.
+
+Absolute emission kg N / ha
+
+```{r}
+rmse(m = outfinal$e.cum, p = outfinal$e)
+mae(m = outfinal$e.cum, p = outfinal$e)
+me(m = outfinal$e.cum, p = outfinal$e)
+```
+
+Relative emission, fraction applied TAN
+
+```{r}
+rmse(m = outfinal$e.rel, p = outfinal$er)
+mae(m = outfinal$e.rel, p = outfinal$er)
+me(m = outfinal$e.rel, p = outfinal$er)
+```
+
+Mean and median relative error
+
+```{r}
+mean(abs(outfinal$err.rel))
+median(abs(outfinal$err.rel))
+quantile(abs(outfinal$err.rel))
+```
+
+And by application method (low emission methods have high relative error).
+
+```{r}
+outfinal[, .(mn = mean(abs(err.rel)), md = median(abs(err.rel))), by = .(app.mthd)]
+```
+
+Also quite poor for broadcast `bc`!
+
+
+
