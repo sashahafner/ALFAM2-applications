@@ -1,0 +1,132 @@
+---
+title: 'Prevision of comparisons with the ALFAM2 model'
+output: pdf_document
+author: Sasha D. Hafner
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+---
+
+# Overview
+The point of this document is to look at precision of the ALFAM2 model when comparing emission between two similar conditions.
+
+# 1. Prep
+
+```{r}
+library(ALFAM2)
+library(data.table)
+library(ggplot2)
+packageVersion('ALFAM2')
+```
+
+Read input data.
+
+```{r}
+dat <- fread('input.csv')
+```
+
+Add other variables.
+```{r}
+dat[, `:=` (app.rate.ni = 25, man.dm = 4.5, man.ph = 7.2)]
+dat[, rain.rate := precipitation_mm / 1]
+dat[, air.temp := temperature_celsius]
+dat[, wind.2m := windspeed_m_s]
+dat[, wind.sqrt := sqrt(windspeed_m_s)]
+```
+
+Get two subsets, with application starting at 12:00 and 20:00 on the same day, with emission predicted over 48 hours.
+
+```{r}
+d1 <- dat[7:(7 + 48), ]
+d2 <- dat[15:(15 + 48), ]
+```
+
+Get time in hours. 
+
+```{r}
+d1[, ct := as.numeric(difftime(time, min(time), units = 'hours'))]
+d2[, ct := as.numeric(difftime(time, min(time), units = 'hours'))]
+```
+
+Take a look at the tops.
+
+```{r}
+head(d1[, .(time, ct, app.rate.ni, man.dm, man.ph, air.temp, wind.2m)])
+head(d2[, .(time, ct, app.rate.ni, man.dm, man.ph, air.temp, wind.2m)])
+```
+
+Note that these inputs are different from the values shown in the screenshot in the original email message with the question!
+
+Combine into one.
+
+```{r}
+d1[, apptime := 'T12']
+d2[, apptime := 'T20']
+
+din <- rbind(d1, d2)
+```
+
+# 2. Compare parameter sets 2 and 3
+Run ALFAM2 model with parameter sets 2 and 3, combine those results, and get the final values for a comparison.
+
+```{r}
+pred2 <- alfam2(din, pars = alfam2pars02, group = 'apptime')
+pred3 <- alfam2(din, pars = alfam2pars03, group = 'apptime', conf.int = 0.9)
+
+setDT(pred2)
+setDT(pred3)
+
+pred2[, parset := 'pars 2']
+pred3[, parset := 'pars 3']
+
+preds <- rbind(pred2, pred3, fill = TRUE)
+
+pend <- preds[ct == 48, ]
+pend <- dcast(pend, parset ~ apptime, value.var = 'er')
+pend[, ediff := 100 * (T12 - T20)]
+```
+
+Here are the results.
+First cumulative emission over time.
+
+```{r}
+ggplot(preds, aes(ct, er, colour = apptime)) +
+  geom_line() +
+  geom_errorbar(aes(ymin = er.lwr, ymax = er.upr, width = 0), alpha = 0.2) +
+  facet_wrap(~ parset) +
+  theme_bw() +
+  theme(legend.position = 'top') +
+  labs(x = 'Time after slurry application (h)',
+       y = 'Relative cumulative emission (frac. applied TAN)',
+       colour = 'Application time')
+```
+
+Error bars are 90% confidence intervals.
+
+Difference between 12:00 and 20:00 as percentage of applied TAN.
+
+```{r}
+print(pend)
+```
+
+# 3. Confidence interval on comparison with parameter set 3
+
+Run ALFAM2 model, returning all 100 sets of results (100 "plausible parameter sets", see paper), and get final times.
+
+```{r}
+pred3c <- alfam2(din, pars = alfam2pars03, group = 'apptime', conf.int = 'all')
+setDT(pred3c)
+pend3c <- pred3c[ct == 48, ]
+```
+
+Reshape and get difference for each parameter set, and then confidence interval from quantiles.
+
+```{r}
+pw <- dcast(pend3c, par.id ~ apptime, value.var = 'er')
+pw[, dd := T12 - T20]
+print(100 * quantile(pw$dd, c(0.05, 0.5, 0.95)))
+```
+
+So 90% CI is [1.3, 3.5] % of applied TAN.
+This is relatively high precision in my opinion.
+In includes the uncertainty in parameter values that come from variability in measurements among institutions.
+It might seem strange that we have high confidence in a positive difference here in the comparison (higher emission at 12:00 than 20:00) when the error bars in the plot above overlap quite a bit.
+The explanation is that we have more confidence in relative effects than in absolute emission, probably mainly due to the nature of the measurement data.
