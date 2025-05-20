@@ -130,3 +130,104 @@ This is relatively high precision in my opinion.
 In includes the uncertainty in parameter values that come from variability in measurements among institutions.
 It might seem strange that we have high confidence in a positive difference here in the comparison (higher emission at 12:00 than 20:00) when the error bars in the plot above overlap quite a bit.
 The explanation is that we have more confidence in relative effects than in absolute emission, probably mainly due to the nature of the measurement data.
+
+# 4. Comparison to average approach
+
+Calculate difference based on average inputs.
+
+```{r}
+datave <- data.table(apptime = c('T12', 'T20'), ct = 48, app.rate.ni = 25, man.dm = 4.5, man.ph = 7.2,
+                     wind.sqrt = sqrt(c(3.23, 3.11)), air.temp = c(12.07, 11.65))
+```
+
+```{r}
+pred2ave <- alfam2(datave, pars = alfam2pars02, group = 'apptime')
+pred3ave <- alfam2(datave, pars = alfam2pars03, group = 'apptime', conf.int = 0.9)
+```
+
+```{r}
+setDT(pred2ave)
+setDT(pred3ave)
+
+pred2ave[, parset := 'pars 2']
+pred3ave[, parset := 'pars 3']
+
+preds <- rbind(pred2ave, pred3ave, fill = TRUE)
+
+pave <- dcast(preds, parset ~ apptime, value.var = 'er')
+pave[, ediff := 100 * (T12 - T20)]
+pave
+```
+
+Why is the difference so much smaller when based on average inputs?
+The answer is that the difference in total emission with the hourly data is mainly due to what happens in the first 12 hours or so.
+That is according to the ALFAM2 model. 
+But the CI in the previous section should give some confidence that this interpretation is meaningful.
+
+Wind speed actually starts higher for application at 20:00.
+
+```{r}
+ggplot(din, aes(ct, wind.2m, colour = apptime)) +
+  geom_line() +
+  theme_bw() +
+  theme(legend.position = 'top') +
+  labs(x = 'Time after slurry application (h)',
+       y = 'Relative cumulative emission (frac. applied TAN)',
+       colour = 'Application time')
+```
+
+But air temperature is lower for around 12 hours.
+
+```{r}
+ggplot(din, aes(ct, air.temp, colour = apptime)) +
+  geom_line() +
+  theme_bw() +
+  theme(legend.position = 'top') +
+  labs(x = 'Time after slurry application (h)',
+       y = 'Relative cumulative emission (frac. applied TAN)',
+       colour = 'Application time')
+```
+
+We can take a closer look at model parameters and pools to understand the effects of these differences.
+Here we'll get confidence intervals for some outputs of interest.
+Only parameter set 3 is used here.
+
+```{r}
+pred3p <- alfam2(din, pars = alfam2pars03, group = 'apptime', 
+                 conf.int = 0.9, var.ci = c('f', 's', 'er', 'r1', 'r2'))
+setDT(pred3p)
+```
+
+We can see that the lower initial temperature makes for a substantially lower rate of volatilization from the fast pool.
+
+```{r}
+pred3p[, xd := ct]
+pred3p[apptime == 'T12', xd := xd - 0.1]
+pred3p[apptime == 'T20', xd := xd + 0.1]
+ggplot(pred3p, aes(ct, r1, colour = apptime)) +
+  geom_errorbar(aes(x = xd, ymin = r1.lwr, ymax = r1.upr, width = 0), alpha = 0.3) +
+  geom_line() +
+  theme_bw() +
+  theme(legend.position = 'top') +
+  labs(x = 'Time after slurry application (h)',
+       y = 'r1 (1/h)',
+       colour = 'Application time')
+```
+
+And that means more TAN gets into the slow pool and stays there, with application at 20:00.
+
+```{r}
+ggplot(pred3p, aes(ct, s, colour = apptime)) +
+  geom_errorbar(aes(x = xd, ymin = s.lwr, ymax = s.upr, width = 0), alpha = 0.3) +
+  geom_line() +
+  theme_bw() +
+  theme(legend.position = 'top') +
+  labs(x = 'Time after slurry application (h)',
+       y = 'Slow pool (frac. applied TAN)',
+       colour = 'Application time')
+```
+
+Really, the small difference in emission predicted with average inputs is not very meaningful.
+It could have a different sign than the hourly results.
+One argument for hour-of-day application decisions is that the timing of weather changes matter.
+But of course timing of weather changes are not reflected in average inputs at all.
